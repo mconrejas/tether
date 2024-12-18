@@ -6,6 +6,16 @@
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
   "sideEffects": false,
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./react": "./dist/react/index.js",
+    "./vue": "./dist/vue/index.js",
+    "./svelte": "./dist/svelte/index.js",
+    "./angular": "./dist/angular/index.js"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/mconrejas/tether.git"

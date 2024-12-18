@@ -1,65 +1,53 @@
-import { produce, Draft } from "immer";
+import produce, { Draft } from "immer";
+import { PersistOptions } from "./types";
 
 type Listener<T> = (state: T) => void;
-type StateCreator<T> = (set: (updater: (state: Draft<T>) => void) => void, get: () => T) => T;
+type StateCreator<T> = (set: (updater: (state: Draft<T>) => void) => void) => T;
 
 interface CreateStoreOptions<T> {
-  persist?: {
-    key: string;
-    selector?: (state: T) => Partial<T>;
-  };
+  persist?: PersistOptions<T>;
 }
 
 export function createStore<T>(
   stateCreator: StateCreator<T>,
   options?: CreateStoreOptions<T>
-): {
-  getState: () => T;
-  setState: (updater: (state: Draft<T>) => void) => void;
-  subscribe: (listener: Listener<T>) => () => void;
-} {
+) {
   let state: T;
   const listeners = new Set<Listener<T>>();
 
   const getState = () => state;
 
-  const baseSetState = (updater: (state: Draft<T>) => void) => {
+  const setState = (updater: (state: Draft<T>) => void) => {
     state = produce(state, updater);
     listeners.forEach((listener) => listener(state));
+    if (options?.persist?.key) {
+      const { key, selector } = options.persist;
+      const stateToPersist = selector ? selector(state) : state;
+      localStorage.setItem(key, JSON.stringify(stateToPersist));
+    }
   };
 
-  const setState = options?.persist
-    ? (updater: (state: Draft<T>) => void) => {
-        baseSetState(updater);
-        const { key, selector } = options.persist!;
-        const stateToPersist = selector ? selector(state) : state;
-        localStorage.setItem(key, JSON.stringify(stateToPersist));
-      }
-    : baseSetState;
-
-  // Initialize state (load from persistence if enabled)
+  // Initialize state with optional persistence
   if (options?.persist?.key) {
     const savedState = localStorage.getItem(options.persist.key);
     if (savedState) {
       try {
         state = JSON.parse(savedState);
       } catch (e) {
-        console.error("Failed to parse persisted state:", e);
-        state = stateCreator(baseSetState, getState);
+        console.warn("Failed to parse persisted state:", e);
+        state = stateCreator(setState);
       }
     } else {
-      state = stateCreator(baseSetState, getState);
+      state = stateCreator(setState);
     }
   } else {
-    state = stateCreator(baseSetState, getState);
+    state = stateCreator(setState);
   }
 
-  return {
-    getState,
-    setState,
-    subscribe: (listener: Listener<T>) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
+  const subscribe = (listener: Listener<T>) => {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
   };
+
+  return { getState, setState, subscribe };
 }

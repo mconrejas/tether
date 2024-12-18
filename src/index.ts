@@ -1,4 +1,2 @@
-import { createStore } from './createStore';
-
-// Default export
-export default createStore;
+export { default } from "./vanilla";
+export { createStore } from "./createStore";
